@@ -290,20 +290,20 @@ check_consistency(struct array *keys, uint32_t item_size, struct array *keys_del
         }
     }
 }
+enum key_state {INSERTED, UPDATED, DELETED};
+typedef struct keys {
+    struct bstring *key;
+    enum key_state state;
+} keys;
 
 static void
 test_assert_crud_multiple_keys(uint32_t slab_mem, uint32_t nkey, uint32_t item_size)
 {
-    struct array *keys, *keys_deleted, *keys_updated;
     struct bstring val, *key;
     uint32_t i, init_arr_n = 100;
     struct item *it;
     item_rstatus_e status;
-
-    array_create(&keys, nkey, sizeof(struct bstring));
-    array_create(&keys_deleted, init_arr_n, sizeof(struct bstring));
-    array_create(&keys_updated, init_arr_n, sizeof(struct bstring));
-
+    keys *keys= cc_calloc(nkey, sizeof(struct keys));
     option_load_default((struct option *)&options, OPTION_CARDINALITY(options));
     options.slab_datapool.val.vstr = DATAPOOL_PATH;
     options.slab_mem.val.vuint = slab_mem;
@@ -316,9 +316,7 @@ test_assert_crud_multiple_keys(uint32_t slab_mem, uint32_t nkey, uint32_t item_s
 
     /* fill database */
     for (i = 0; i < nkey; i++) {
-        key = array_push(keys);
-        key->len = (uint32_t)digits(i);
-        key->data = cc_alloc(key->len + 1);
+        keys[i].key = bstring_alloc((uint32_t)digits(i));
         val.len = item_size - item_ntotal((uint8_t)key->len, 0, 0);
         val.data = cc_alloc(val.len + 1);
 
@@ -332,24 +330,22 @@ test_assert_crud_multiple_keys(uint32_t slab_mem, uint32_t nkey, uint32_t item_s
     }
 
     for (i = 0; i < nkey ; i++) {
-        key = array_get(keys, i);
-        it = item_get(key);
+        it = item_get(keys[i].key);
         ck_assert_msg(it != NULL, "item_get could not find key %.*s", key->len, key->data);
     }
 
-    delete_update_operations(keys, keys_deleted, keys_updated, 6, 8);
+    //    delete_update_operations(keys, 6, 8);
 
-    test_teardown(0);
-    slab_setup(&options, &metrics);
+    //    test_teardown(0);
+    //    slab_setup(&options, &metrics);
 
-    check_consistency(keys, item_size, keys_deleted, keys_updated);
+    //    check_consistency(keys, item_size);
 
-    delete_update_operations(keys, keys_deleted, keys_updated, 9, 5);
-    check_consistency(keys, item_size, keys_deleted, keys_updated);
+    //    delete_update_operations(keys, 9, 5);
+    //    check_consistency(keys, item_size);
 
-    array_destroy(&keys_deleted);
-    array_destroy(&keys_updated);
-    array_destroy(&keys);
+    free(keys);
+
 }
 
 /**
@@ -1711,49 +1707,49 @@ slab_suite(void)
     Suite *s = suite_create(SUITE_NAME);
     pagesize = (uint32_t)sysconf(_SC_PAGESIZE);
 
-    /* basic item */
-    TCase *tc_item = tcase_create("item api");
-    suite_add_tcase(s, tc_item);
+//    /* basic item */
+//    TCase *tc_item = tcase_create("item api");
+//    suite_add_tcase(s, tc_item);
 
-    tcase_add_test(tc_item, test_insert_basic);
-    tcase_add_test(tc_item, test_insert_large);
-    tcase_add_test(tc_item, test_reserve_backfill_release);
-    tcase_add_test(tc_item, test_reserve_backfill_link);
-    tcase_add_test(tc_item, test_append_basic);
-    tcase_add_test(tc_item, test_prepend_basic);
-    tcase_add_test(tc_item, test_annex_sequence);
-    tcase_add_test(tc_item, test_delete_basic);
-    tcase_add_test(tc_item, test_update_basic);
-    tcase_add_test(tc_item, test_flush_basic);
-    tcase_add_test(tc_item, test_update_basic_after_restart);
-    tcase_add_test(tc_item, test_expire_basic);
-    tcase_add_test(tc_item, test_expire_truncated);
-    tcase_add_test(tc_item, test_freeq);
-    tcase_add_test(tc_item, test_release_reserved_items_after_restart);
+//    tcase_add_test(tc_item, test_insert_basic);
+//    tcase_add_test(tc_item, test_insert_large);
+//    tcase_add_test(tc_item, test_reserve_backfill_release);
+//    tcase_add_test(tc_item, test_reserve_backfill_link);
+//    tcase_add_test(tc_item, test_append_basic);
+//    tcase_add_test(tc_item, test_prepend_basic);
+//    tcase_add_test(tc_item, test_annex_sequence);
+//    tcase_add_test(tc_item, test_delete_basic);
+//    tcase_add_test(tc_item, test_update_basic);
+//    tcase_add_test(tc_item, test_flush_basic);
+//    tcase_add_test(tc_item, test_update_basic_after_restart);
+//    tcase_add_test(tc_item, test_expire_basic);
+//    tcase_add_test(tc_item, test_expire_truncated);
+//    tcase_add_test(tc_item, test_freeq);
+//    tcase_add_test(tc_item, test_release_reserved_items_after_restart);
 
-    TCase *tc_slab = tcase_create("slab api");
-    suite_add_tcase(s, tc_slab);
-    tcase_add_test(tc_slab, test_lruq_rebuild);
-    tcase_add_test(tc_slab, test_evict_lru_basic);
-    tcase_add_test(tc_slab, test_refcount);
-    tcase_add_test(tc_slab, test_evict_refcount);
-    tcase_add_exit_test(tc_slab, test_setup_wrong_path, EX_CONFIG);
+//    TCase *tc_slab = tcase_create("slab api");
+//    suite_add_tcase(s, tc_slab);
+//    tcase_add_test(tc_slab, test_lruq_rebuild);
+//    tcase_add_test(tc_slab, test_evict_lru_basic);
+//    tcase_add_test(tc_slab, test_refcount);
+//    tcase_add_test(tc_slab, test_evict_refcount);
+//    tcase_add_exit_test(tc_slab, test_setup_wrong_path, EX_CONFIG);
 
     TCase *tc_multiple = tcase_create("multiple keys");
     suite_add_tcase(s, tc_multiple);
     tcase_add_loop_test(tc_multiple, test_crud_multiple_keys, 0, 3);
 
-    TCase *tc_smetrics = tcase_create("slab metrics");
-    suite_add_tcase(s, tc_smetrics);
-    tcase_add_test(tc_smetrics, test_metrics_insert_basic);
-    tcase_add_test(tc_smetrics, test_metrics_insert_large);
-    tcase_add_test(tc_smetrics, test_metrics_reserve_backfill_link);
-    tcase_add_test(tc_smetrics, test_metrics_append_basic);
-    tcase_add_test(tc_smetrics, test_metrics_update_basic);
-    tcase_add_test(tc_smetrics, test_metrics_update_basic_after_restart);
-    tcase_add_test(tc_smetrics, test_metrics_expire_basic);
-    tcase_add_test(tc_smetrics, test_metrics_expire_truncated);
-    tcase_add_test(tc_smetrics, test_metrics_lruq_rebuild);
+//    TCase *tc_smetrics = tcase_create("slab metrics");
+//    suite_add_tcase(s, tc_smetrics);
+//    tcase_add_test(tc_smetrics, test_metrics_insert_basic);
+//    tcase_add_test(tc_smetrics, test_metrics_insert_large);
+//    tcase_add_test(tc_smetrics, test_metrics_reserve_backfill_link);
+//    tcase_add_test(tc_smetrics, test_metrics_append_basic);
+//    tcase_add_test(tc_smetrics, test_metrics_update_basic);
+//    tcase_add_test(tc_smetrics, test_metrics_update_basic_after_restart);
+//    tcase_add_test(tc_smetrics, test_metrics_expire_basic);
+//    tcase_add_test(tc_smetrics, test_metrics_expire_truncated);
+//    tcase_add_test(tc_smetrics, test_metrics_lruq_rebuild);
 
     return s;
 }
@@ -1769,6 +1765,7 @@ main(void)
     Suite *suite = slab_suite();
     SRunner *srunner = srunner_create(suite);
     srunner_set_log(srunner, DEBUG_LOG);
+    srunner_set_fork_status(srunner, CK_NOFORK);
     srunner_run_all(srunner, CK_ENV); /* set CK_VEBOSITY in ENV to customize */
     nfail = srunner_ntests_failed(srunner);
     srunner_free(srunner);
